@@ -47,17 +47,23 @@ def get_doxygen(comment):
         cs = comment.split('\n')
 
     ret = ""
+    has_more_comment = False
     for line in cs:
-        if line.startswith("/*") or line.endswith("*/"):
+        if line.startswith("/*") or line.endswith("*/") or line.startswith("* @param"):
             continue
         elif line == "*":  # brief end with empty line
-            break
+            if not has_more_comment:
+                ret += '\n<pre>\n'
+            has_more_comment = True
         else:
             if line.startswith("* "):
                 line = line[2:]
             ret += line + '\n'
 
-    ret = ret.replace("@brief ", "")
+    if has_more_comment:
+        ret += '</pre>\n'
+
+    ret = ret.replace("@brief ", "").replace('*', '>').replace('\n<pre>\n</pre>\n', '')
     return ret
 
 
@@ -119,14 +125,14 @@ class APIRefGenerator(object):
         #
         # Generate plugin api reference
         #
-        cpp_ref = ""
-
-        lua_fef = ""
-
-        js_ref = ""
+        cpp_ref = lua_fef = js_ref = cpp_l_ref = lua_l_ref = js_l_ref = ""
 
         classes = cppHeader.classes
         plugin_name = self.className
+
+        if plugin_name not in classes:
+            return False, cpp_ref, cpp_l_ref, lua_fef, lua_l_ref, js_ref, js_l_ref
+
         plugin_class = classes[plugin_name]
         methods = plugin_class["methods"]["public"]
 
@@ -179,7 +185,7 @@ class APIRefGenerator(object):
         elif self.pluginName.upper() + "Listener" in classes.keys():
             listener_class = classes[self.pluginName.upper() + "Listener"]
 
-        cpp_l_ref = lua_l_ref = js_l_ref = ""
+
         if listener_class:
             methods = listener_class["methods"]["public"]
 
@@ -187,7 +193,7 @@ class APIRefGenerator(object):
                 if m["debug"][0] == "~":
                     continue
 
-                cpp_l_ref += "```cpp\n%s;\n```\n" % format_function(m["debug"].replace("virtual ", "").replace(" = 0 ", "").replace("{", ""))
+                cpp_l_ref += "```cpp\n%s\n```\n" % format_function(m["debug"].replace("virtual ", "").replace(" = 0 ", "").replace("{", ""))
                 doxygen = ""
                 if "doxygen" in m.keys():
                     doxygen = "> " + get_doxygen(m["doxygen"])
